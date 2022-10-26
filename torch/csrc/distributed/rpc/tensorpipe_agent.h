@@ -45,9 +45,10 @@ constexpr int64_t kIbvTransportPriority = 100;
 constexpr int64_t kUvTransportPriority = 0;
 
 constexpr int64_t kCmaChannelPriority = 1200;
-constexpr int64_t kMultiplexedUvChannelPriority = 1100;
 // The basic channel reuses a transport as a channel, and is thus our fallback.
 constexpr int64_t kBasicChannelPriority = 1000;
+// (WGT): Force tensorpipe to use IB
+constexpr int64_t kMultiplexedUvChannelPriority = 900;
 
 // CPU channel have higher priority than CUDA channels, since the latter might
 // handle CPU-to-CPU transfers, but will always be less efficient than their

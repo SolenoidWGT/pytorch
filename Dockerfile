@@ -39,7 +39,7 @@ COPY requirements.txt .
 RUN chmod +x ~/miniconda.sh && \
     ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh && \
-    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} cmake conda-build pyyaml numpy ipython && \
+    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} cmake conda-build pyyaml numpy ipython mkl-include && \
     /opt/conda/bin/python -mpip install -r requirements.txt && \
     /opt/conda/bin/conda clean -ya
 
@@ -74,6 +74,35 @@ RUN case ${TARGETPLATFORM} in \
     /opt/conda/bin/conda clean -ya
 RUN /opt/conda/bin/pip install torchelastic
 
+FROM ${BASE_IMAGE} as ib-runtime
+ARG OS_NAME=ubuntu18.04
+ARG MOFED_VERSION=5.1-0.6.6.0
+
+RUN apt-get update && \
+    apt-get -y install apt-utils && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+    build-essential tcsh tcl tk \
+    curl wget ca-certificates \
+    iputils-ping net-tools ethtool \
+    perl lsb-release python-libxml2 \
+    iproute2 pciutils libnl-route-3-200 \
+    kmod libnuma1 lsof openssh-server \
+    swig libelf1 automake libglib2.0-0 \
+    autoconf graphviz chrpath flex libnl-3-200 m4 \
+    debhelper autotools-dev gfortran libltdl-dev && \
+    rm -rf /rm -rf /var/lib/apt/lists/*
+
+# MLNX_OFED build need python2, and we need and following flags to avoid error:
+# --without-neohost-backend 
+# --without-neohost-sdk 
+# --skip-unsupported-devices-check
+RUN wget https://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${OS_NAME}-x86_64.tgz && \
+    tar -xvf MLNX_OFED_LINUX-${MOFED_VERSION}-${OS_NAME}-x86_64.tgz && \
+    MLNX_OFED_LINUX-${MOFED_VERSION}-${OS_NAME}-x86_64/mlnxofedinstall --user-space-only --without-fw-update --without-neohost-backend --without-neohost-sdk --skip-unsupported-devices-check -q && \
+    cd .. && \
+    rm -rf ${MOFED_DIR} && \
+    rm -rf *.tgz
+
 FROM ${BASE_IMAGE} as official
 ARG PYTORCH_VERSION
 LABEL com.nvidia.volumes.needed="nvidia_driver"
@@ -93,3 +122,4 @@ WORKDIR /workspace
 FROM official as dev
 # Should override the already installed version from the official-image stage
 COPY --from=build /opt/conda /opt/conda
+COPY --from=ib-runtime /usr/lib/x86_64-linux-gnu/libibverbs.*  /usr/lib/x86_64-linux-gnu/

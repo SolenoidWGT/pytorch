@@ -1,13 +1,16 @@
-DOCKER_REGISTRY          ?= docker.io
-DOCKER_ORG               ?= $(shell docker info 2>/dev/null | sed '/Username:/!d;s/.* //')
+DOCKER_REGISTRY          ?= registry.sensetime.com
+DOCKER_ORG               ?= xlab
 DOCKER_IMAGE             ?= pytorch
 DOCKER_FULL_NAME          = $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_IMAGE)
-
+OS_NAME                  ?= ubuntu18.04
+MOFED_VERSION            ?= 5.1-0.6.6.0
 ifeq ("$(DOCKER_ORG)","")
 $(warning WARNING: No docker user found using results from whoami)
 DOCKER_ORG                = $(shell whoami)
 endif
 
+http_proxy                ?=
+https_proxy               ?=
 CUDA_VERSION              = 11.3.1
 CUDNN_VERSION             = 8
 BASE_RUNTIME              = ubuntu:18.04
@@ -19,16 +22,20 @@ CUDA_CHANNEL              = nvidia
 INSTALL_CHANNEL          ?= pytorch
 
 PYTHON_VERSION           ?= 3.8
-PYTORCH_VERSION          ?= $(shell git describe --tags --always)
+PYTORCH_VERSION          ?= 1.12.1
 # Can be either official / dev
 BUILD_TYPE               ?= dev
 BUILD_PROGRESS           ?= auto
 BUILD_ARGS                = --build-arg BASE_IMAGE=$(BASE_IMAGE) \
-							--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
-							--build-arg CUDA_VERSION=$(CUDA_VERSION) \
-							--build-arg CUDA_CHANNEL=$(CUDA_CHANNEL) \
-							--build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
-							--build-arg INSTALL_CHANNEL=$(INSTALL_CHANNEL)
+                                                        --build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
+                                                        --build-arg CUDA_VERSION=$(CUDA_VERSION) \
+                                                        --build-arg CUDA_CHANNEL=$(CUDA_CHANNEL) \
+                                                        --build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
+                                                        --build-arg INSTALL_CHANNEL=$(INSTALL_CHANNEL) \
+                                                        --build-arg MOFED_VERSION=$(MOFED_VERSION) \
+                                                        --build-arg OS_NAME=$(OS_NAME) \
+                                                        --build-arg http_proxy=$(http_proxy) \
+                                                        --build-arg https_proxy=$(https_proxy)
 EXTRA_DOCKER_BUILD_FLAGS ?=
 
 BUILD                    ?= build
@@ -51,14 +58,14 @@ endif
 endif
 
 DOCKER_BUILD              = DOCKER_BUILDKIT=1 \
-							docker $(BUILD) \
-								--progress=$(BUILD_PROGRESS) \
-								$(EXTRA_DOCKER_BUILD_FLAGS) \
-								$(PLATFORMS_FLAG) \
-								$(PUSH_FLAG) \
-								--target $(BUILD_TYPE) \
-								-t $(DOCKER_FULL_NAME):$(DOCKER_TAG) \
-								$(BUILD_ARGS) .
+                                                        docker $(BUILD) \
+                                                                --progress=$(BUILD_PROGRESS) \
+                                                                $(EXTRA_DOCKER_BUILD_FLAGS) \
+                                                                $(PLATFORMS_FLAG) \
+                                                                $(PUSH_FLAG) \
+                                                                --target $(BUILD_TYPE) \
+                                                                -t $(DOCKER_FULL_NAME):$(DOCKER_TAG) \
+                                                                $(BUILD_ARGS) .
 DOCKER_PUSH               = docker push $(DOCKER_FULL_NAME):$(DOCKER_TAG)
 
 .PHONY: all
